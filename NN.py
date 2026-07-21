@@ -10,12 +10,28 @@ class Layer_Dense:
         self.weights = 0.01 * np.random.randn(n_inputs , n_neurons)             # weights matrix defined as inputs x neurons initialized with random numbers from normal distribution mu = 0 and sigma = 1
         self.bias = np.zeros((1, n_neurons))                                # bias is a column vector
     def forward(self, inputs):
+        self.inputs = inputs
         self.output = np.dot(inputs, self.weights) + self.bias
+    def backward(self, dvalues):  # dvalues is dL/dz where z is input*weights + bias
+
+        # Gradient of Loss respect to weights and biases
+        self.dweights = np.dot(self.inputs.T, dvalues)
+        self.dbiases = np.sum(dvalues, axis = 0, keepdims = True)
         
-#ReLU activation function
+        # Gradient of Loss respect to inputs x
+        self.dinputs = np.dot(dvalues, self.weights.T)
+
 class activation_reLU:
     def forward(self, inputs):
+        self.inputs = inputs
         self.output = np.maximum(0, inputs)
+    def backward(self, dvalues):  # dvalues represent dL/da where a is ReLU(z)
+        #inputs are z1, z2, z3
+        # we need to modify the original variable, let's make a copy of the values first
+        self.dinputs = dvalues.copy()  #dinputs represent dL/dz
+        # Zero gradient where input values were negative
+        self.dinputs[self.inputs <= 0] = 0
+
 
 #SoftMax activation function
 class activation_softmax:
@@ -23,12 +39,17 @@ class activation_softmax:
         exp_values = np.exp(inputs - np.max(inputs, axis=1, keepdims=True)) #unnormalized probabilities
         probabilities = exp_values / np.sum(exp_values, axis=1, keepdims=True)
         self.output = probabilities
+    def backward():
+        
+
+
+
 
 class Loss:
     def calculate(self, output, y):
         sample_losses = self.forward(output, y)
         data_loss = np.mean(sample_losses)
-        return data_loss
+        return data_loss             
 
 class Loss_CategoricalCrossentropy(Loss):
     def forward(self, y_pred, y_true):
@@ -41,6 +62,22 @@ class Loss_CategoricalCrossentropy(Loss):
             correct_confidences = np.sum(y_pred_clipped * y_true, axis=1)
         negative_log_likelihoods = -np.log(correct_confidences)
         return negative_log_likelihoods
+
+    def backward(self, dvalues, y_true):   # dvalues here are the predicted outputs
+        #number of samples
+        samples = len(dvalues)
+        #number of labels in every sample
+        #we'll use the first sample to count them
+        labels = len(dvalues[0])
+        
+        #one-hot encoding if the labels are sparse
+        if len(y_true.shape == 1):
+            y_true = np.eye(labels)[y_true]
+        # calculate gradient
+        self.dinputs = -y_true/dvalues    # dinputs represent dL/dy_true
+        # Normalize gradient
+        self.dinputs = self.dinputs/samples
+
 
 # Create dataset
 X, y = spiral_data(samples=100, classes=3)
@@ -62,9 +99,9 @@ activation1.forward(dense1.output)
 dense2.forward(activation1.output)
 # Make a forward pass through the second activation function
 activation2.forward(dense2.output)
-# Save the output
 output = activation2.output
 
+# Save the output
 # Calculate the loss
 loss_function = Loss_CategoricalCrossentropy()
 loss = loss_function.calculate(output, y)
@@ -78,11 +115,4 @@ if len(y.shape) == 2:
 # True evaluates to 1; False evaluates to 0
 accuracy = np.mean(predictions == y)
 print('accuracy: ', accuracy*100, '%')
-
-
-
-
-
-
-
-
+ 
