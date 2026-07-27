@@ -4,7 +4,7 @@ from nnfs.datasets import spiral_data
 nnfs.init()
 import matplotlib.pyplot as plt
 from nn_classes import (
-    Layer_Dense,
+    Layer,
     activation_reLU,
     activation_softmax,
     Activation_Softmax_Loss_CategoricalCrossentropy,
@@ -22,19 +22,19 @@ epochs = 10001
 
 # Create dataset
 #  
-X, y = spiral_data(samples=100, classes=3)
+X, y = spiral_data(samples=300, classes=3)
 # Create Dense layer with 2 input features and 3 output values
-dense1 = Layer_Dense(2,Neurons)
+dense1 = Layer(2,Neurons, weight_regularizer_l2=5e-4, bias_regularizer_l2=5e-4)
 # Create ReLU activation
 activation1 = activation_reLU()
 # Create second Dense layer with 3 input features and 3 output values
-dense2 = Layer_Dense(Neurons,3)
+dense2 = Layer(Neurons,3)
 # Create combined Softmax activation and categorical cross-entropy loss
 loss_activation = Activation_Softmax_Loss_CategoricalCrossentropy()
 
 #optimizer = Adagrad_Optimizer(decay=1e-4)
 #optimizer = Momentum_Optimizer(decay=1e-3, momentum=0.9)
-optimizer = Adam_Optimizer(decay=1e-4)
+optimizer = Adam_Optimizer(decay=5e-7)
 
 for epoch in range(epochs):
     # Make a forward pass of our training data through the first layer
@@ -45,7 +45,10 @@ for epoch in range(epochs):
     # Make a forward pass through the second dense layer
     dense2.forward(activation1.output)
     # Make a forward pass through the combined softmax activation and loss
-    loss = loss_activation.forward(dense2.output, y)
+    data_loss = loss_activation.forward(dense2.output, y)
+    # Calculate regularization loss
+    regularization_loss = loss_activation.loss.regularization_loss(dense1) + loss_activation.loss.regularization_loss(dense2) 
+    loss = data_loss + regularization_loss
 
     # Check accuracy  
 
@@ -82,8 +85,13 @@ dense1.forward(X_val)
 activation1.forward(dense1.output)
 # Make a forward pass through the second dense layer
 dense2.forward(activation1.output)
-# Make a forward pass through the combined softmax activation and loss
-loss = loss_activation.forward(dense2.output, y_val)
+# Make a forward pass through the combined softmax activation and loss to calculate the loss from output of activation2 
+data_loss = loss_activation.forward(dense2.output, y_val)
+# Calculate regularization loss
+regularization_loss = loss_activation.loss.regularization_loss(dense1) + loss_activation.loss.regularization_loss(dense2)
+
+# Total loss is data loss and regularization loss
+loss = data_loss + regularization_loss
 
 # Check accuracy
 predictions = np.argmax(loss_activation.output, axis=1)
