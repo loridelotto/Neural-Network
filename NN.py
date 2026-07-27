@@ -3,7 +3,6 @@ import nnfs
 from nnfs.datasets import spiral_data  
 nnfs.init()
 import matplotlib.pyplot as plt
-
 #Dense Layer class
 class Layer_Dense:
     def __init__(self, n_inputs, n_neurons):
@@ -25,6 +24,7 @@ class activation_reLU:
     def forward(self, inputs):
         self.inputs = inputs
         self.output = np.maximum(0, inputs)
+
 
     def backward(self, dvalues):  # dvalues represent dL/da where a is ReLU(z)   
         #inputs are z1, z2, z3
@@ -97,27 +97,81 @@ class Loss_CategoricalCrossentropy(Loss):
         self.dinputs = self.dinputs/samples
 
 #SDG optimizer 
-class Optimizer_SDG:
-    def __init__(self, learning_rate = 1
-                 ):
+class Optimizer_SGD:
+    def __init__(self, learning_rate = 1):
         self.learning_rate = learning_rate
-
+        
     def update_params(self, layer):
         layer.weights += -self.learning_rate * layer.dweights
         layer.biases += -self.learning_rate * layer.dbiases  
 
+
+class Learning_Decay_Rate:
+    def __init__(self, learning_rate = 1. , decay = 0.):
+        self.learning_rate = learning_rate
+        self.current_learning_rate = learning_rate
+        self.decay = decay
+        self.iterations = 0
+
+    def pre_update_params(self): 
+        if self.decay:
+            self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iterations))
+    
+    def update_params(self, layer):
+        layer.weights += -self.current_learning_rate * layer.dweights
+        layer.biases += - self.current_learning_rate * layer.dbiases
+    
+    def post_update_params(self):
+
+        self.iterations += 1
+class Momentum_Optimizer:
+    def __init__(self, learning_rate = 1. , decay = 0., momentum = 0. ):
+        self.learning_rate = learning_rate
+        self.current_learning_rate = learning_rate
+        self.decay = decay
+        self.iterations = 0
+        self.momentum = momentum
+
+    def pre_update_params(self): 
+        if self.decay:
+            self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iterations))
+    
+    def update_params(self, layer):
+        # If we use momentum
+        if self.momentum:
+            # If layer does not contain momentum arrays, create them filled with zeros
+            if not hasattr(layer, 'weight_momentums'):
+                layer.weight_momentums = np.zeros_like(layer.weights)
+                layer.bias_momentums = np.zeros_like(layer.biases)
+
+            weight_updates = self.momentum * layer.weight_momentums - self.current_learning_rate * layer.dweights
+            layer.weight_momentums = weight_updates
+
+            bias_updates = self.momentum * layer.bias_momentums - self.current_learning_rate * layer.dbiases
+            layer.bias_momentums = bias_updates
+        else: 
+            weight_updates = -self.current_learning_rate * layer.dweights
+            bias_updates = -self,self.current_learning_rate * layer.dbiases
+
+        layer.weights += weight_updates
+        layer.biases += bias_updates
+    
+    def post_update_params(self):
+        self.iterations += 1
+
 # Create dataset
+#  
 X, y = spiral_data(samples=100, classes=3)
 # Create Dense layer with 2 input features and 3 output values
-dense1 = Layer_Dense(2,1000)
+dense1 = Layer_Dense(2,64)
 # Create ReLU activation
 activation1 = activation_reLU()
 # Create second Dense layer with 3 input features and 3 output values
-dense2 = Layer_Dense(1000,3)
+dense2 = Layer_Dense(64,3)
 # Create combined Softmax activation and categorical cross-entropy loss
 loss_activation = Activation_Softmax_Loss_CategoricalCrossentropy()
 
-optimizer = Optimizer_SDG()
+optimizer = Momentum_Optimizer(decay=1e-3, momentum=0.9)
 
 for epoch in range(10001):
     # Make a forward pass of our training data through the first layer
@@ -149,5 +203,8 @@ for epoch in range(10001):
     activation1.backward(dense2.dinputs)
     dense1.backward(activation1.dinputs)
 
+
+    optimizer.pre_update_params()    
     optimizer.update_params(dense1)
     optimizer.update_params(dense2)
+    optimizer.post_update_params()
