@@ -15,6 +15,7 @@ from nn_classes import (
     Momentum_Optimizer,
     Adagrad_Optimizer,
     Adam_Optimizer,
+    Layer_Dropout
 )
 
 Neurons = 64
@@ -41,6 +42,8 @@ for epoch in range(epochs):
     dense1.forward(X)
     # Make a forward pass through the first activation function
     activation1.forward(dense1.output)
+
+    dropout1 = Layer_Dropout(0.1)
 
     # Make a forward pass through the second dense layer
     dense2.forward(activation1.output)
